@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.retail.mapper.OrderMapper">
+
+    <select id="countPaidOrdersByTimeRange" resultType="long">
+        SELECT COUNT(*) FROM `order`
+        WHERE status IN ('PENDING_SHIP', 'SHIPPED', 'COMPLETED')
+        AND pay_time &gt;= #{start} AND pay_time &lt;= #{end}
+    </select>
+
+    <select id="countDistinctUserByTimeRange" resultType="long">
+        SELECT COUNT(DISTINCT user_id) FROM `order`
+        WHERE status IN ('PENDING_SHIP', 'SHIPPED', 'COMPLETED')
+        AND pay_time &gt;= #{start} AND pay_time &lt;= #{end}
+    </select>
+
+    <select id="sumPaidAmountByTimeRange" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_amount), 0) FROM `order`
+        WHERE status IN ('PENDING_SHIP', 'SHIPPED', 'COMPLETED')
+        AND pay_time &gt;= #{start} AND pay_time &lt;= #{end}
+    </select>
+</mapper>

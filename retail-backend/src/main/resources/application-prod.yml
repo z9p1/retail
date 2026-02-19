@@ -1,0 +1,36 @@
+# 阿里云生产环境配置
+# 使用方式: java -jar retail-backend-1.0.0.jar --spring.profiles.active=prod
+# 或通过环境变量覆盖：SPRING_DATASOURCE_URL、SPRING_REDIS_HOST 等
+
+server:
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://your-rds-host:3306/retail?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=Asia/Shanghai}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  redis:
+    host: ${SPRING_REDIS_HOST:your-redis-host}
+    port: ${SPRING_REDIS_PORT:6379}
+    password: ${SPRING_REDIS_PASSWORD:}
+    database: 0
+    timeout: 3000
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+jwt:
+  secret: ${JWT_SECRET:retail-single-store-jwt-secret-key-32bytes}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+cache:
+  user-analysis-ttl: 300
+  traffic-ttl: 300
