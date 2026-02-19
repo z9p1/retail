@@ -10,7 +10,12 @@
         <option value="COMPLETED">已完成</option>
         <option value="CANCELLED">已取消</option>
       </select>
+      <span class="date-range">下单日期</span>
+      <input v-model="query.startDate" type="date" class="date-input" />
+      <span>至</span>
+      <input v-model="query.endDate" type="date" class="date-input" />
       <button @click="load">查询</button>
+      <button type="button" class="btn-export" @click="exportCsv">导出 CSV</button>
     </div>
     <table class="table">
       <thead>
@@ -20,6 +25,7 @@
           <th>商品名称</th>
           <th>商品数量</th>
           <th>金额</th>
+          <th>收货地址</th>
           <th>状态</th>
           <th>下单时间</th>
           <th>操作</th>
@@ -32,6 +38,7 @@
           <td>{{ o.productSummary ?? '—' }}</td>
           <td>{{ o.totalQuantity ?? '—' }}</td>
           <td>{{ o.totalAmount }}</td>
+          <td>{{ o.shippingAddress || '—' }}</td>
           <td>{{ statusText(o.status) }}</td>
           <td>{{ o.createTime }}</td>
           <td>
@@ -50,6 +57,7 @@
       <div class="modal-content">
         <h3>订单详情</h3>
         <p>订单号: {{ detail.order?.orderNo }} 金额: {{ detail.order?.totalAmount }} 状态: {{ statusText(detail.order?.status) }}</p>
+        <p v-if="detail.order?.shippingAddress">收货地址: {{ detail.order.shippingAddress }}</p>
         <ul>
           <li v-for="i in detail.items" :key="i.id">{{ i.productName }} x {{ i.quantity }} = {{ i.subtotal }}</li>
         </ul>
@@ -61,13 +69,13 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { storeOrders, storeOrderDetail, shipOrder } from '../../api/order'
+import { storeOrders, storeOrderDetail, shipOrder, exportStoreOrders } from '../../api/order'
 
 const list = ref([])
 const page = ref(1)
 const pageSize = 10
 const totalPages = ref(1)
-const query = reactive({ status: '', userKeyword: '' })
+const query = reactive({ status: '', userKeyword: '', startDate: '', endDate: '' })
 const detail = ref(null)
 
 function statusText(s) {
@@ -79,6 +87,8 @@ async function load() {
   try {
     const params = { page: page.value, size: pageSize, status: query.status || undefined }
     if (query.userKeyword && query.userKeyword.trim()) params.userKeyword = query.userKeyword.trim()
+    if (query.startDate && query.startDate.trim()) params.startDate = query.startDate.trim()
+    if (query.endDate && query.endDate.trim()) params.endDate = query.endDate.trim()
     const res = await storeOrders(params)
     list.value = res.records || []
     const total = res.total ?? 0
@@ -97,6 +107,26 @@ function viewDetail(id) {
   storeOrderDetail(id).then(d => { detail.value = d })
 }
 
+async function exportCsv() {
+  try {
+    const params = {}
+    if (query.status) params.status = query.status
+    if (query.userKeyword && query.userKeyword.trim()) params.userKeyword = query.userKeyword.trim()
+    if (query.startDate && query.startDate.trim()) params.startDate = query.startDate.trim()
+    if (query.endDate && query.endDate.trim()) params.endDate = query.endDate.trim()
+    const blob = await exportStoreOrders(params)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'orders.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error(e)
+    alert(e.message || '导出失败')
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -104,6 +134,9 @@ onMounted(load)
 .orders h2 { margin: 0 0 1rem; }
 .toolbar { margin-bottom: 1rem; display: flex; gap: 0.5rem; align-items: center; }
 .toolbar .search-input { padding: 0.35rem 0.5rem; min-width: 140px; }
+.toolbar .date-range { margin-left: 0.5rem; color: #666; }
+.toolbar .date-input { padding: 0.35rem 0.5rem; margin: 0 0.25rem; }
+.btn-export { margin-left: 0.5rem; }
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { border: 1px solid #333; padding: 0.5rem; }
 .pagination { margin-top: 1rem; }

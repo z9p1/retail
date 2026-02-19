@@ -9,6 +9,8 @@ USE retail;
 -- ----------------------------------------
 DROP TABLE IF EXISTS order_item;
 DROP TABLE IF EXISTS `order`;
+DROP TABLE IF EXISTS cart_item;
+DROP TABLE IF EXISTS user_address;
 DROP TABLE IF EXISTS access_log;
 DROP TABLE IF EXISTS product;
 DROP TABLE IF EXISTS sys_user;
@@ -49,6 +51,7 @@ CREATE TABLE `order` (
   user_id BIGINT NOT NULL,
   total_amount DECIMAL(12,2) NOT NULL,
   status VARCHAR(24) NOT NULL,
+  shipping_address VARCHAR(512),
   create_time DATETIME,
   pay_time DATETIME,
   update_time DATETIME
@@ -63,6 +66,28 @@ CREATE TABLE order_item (
   quantity INT NOT NULL,
   price DECIMAL(12,2) NOT NULL,
   subtotal DECIMAL(12,2) NOT NULL
+);
+
+-- 购物车明细（持久化）
+CREATE TABLE cart_item (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  create_time DATETIME,
+  update_time DATETIME,
+  UNIQUE KEY uk_user_product (user_id, product_id)
+);
+
+-- 用户收货地址（可为空，下单时可选）
+CREATE TABLE user_address (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  receiver VARCHAR(64),
+  phone VARCHAR(32),
+  address VARCHAR(512) NOT NULL,
+  create_time DATETIME,
+  update_time DATETIME
 );
 
 -- 访问/行为日志

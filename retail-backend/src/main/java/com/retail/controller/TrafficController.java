@@ -24,4 +24,11 @@ public class TrafficController {
         }
         return Result.ok(trafficService.getTraffic(range));
     }
+
+    /** 销量趋势：近 7 天每日总金额 + 各商品每日金额，用于线型图与按商品切换 */
+    @GetMapping("/trend")
+    public Result<Map<String, Object>> trend(@RequestParam(defaultValue = "7") int days) {
+        if (days < 1 || days > 31) days = 7;
+        return Result.ok(trafficService.getSalesTrend(days));
+    }
 }

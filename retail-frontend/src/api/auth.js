@@ -7,3 +7,11 @@ export function login(username, password) {
 export function register(data) {
   return request.post('/auth/register', data)
 }
+
+export function changePassword(oldPassword, newPassword) {
+  return request.post('/auth/change-password', { oldPassword, newPassword })
+}
+
+export function updateProfile(nickname, phone) {
+  return request.put('/user/profile', { nickname, phone })
+}

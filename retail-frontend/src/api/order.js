@@ -1,11 +1,11 @@
 import request from './request'
 
 /**
- * 创建订单。可选传 idempotencyKey，相同 key 在 5 分钟内重复请求返回同一订单，防重复提交。
+ * 创建订单。shippingAddress 可选。idempotencyKey 同 key 在 5 分钟内返回同一订单。
  */
-export function createOrder(items, idempotencyKey) {
+export function createOrder(items, idempotencyKey, shippingAddress) {
   const config = idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}
-  return request.post('/user/orders', items, config)
+  return request.post('/user/orders', { items, shippingAddress: shippingAddress || undefined }, config)
 }
 
 export function payOrder(orderId) {
@@ -39,4 +39,9 @@ export function storeOrderDetail(orderId) {
 
 export function shipOrder(orderId) {
   return request.post(`/store/orders/${orderId}/ship`, {})
+}
+
+/** 店家：导出订单为 CSV（当前筛选条件，最多 5000 条） */
+export function exportStoreOrders(params) {
+  return request.get('/store/orders/export', { params, responseType: 'blob' })
 }

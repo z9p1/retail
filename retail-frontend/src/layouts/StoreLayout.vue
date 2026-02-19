@@ -10,6 +10,7 @@
         <router-link to="/store/online-users">用户监控</router-link>
         <router-link to="/store/user-analysis">用户分析</router-link>
         <router-link to="/store/schedule">任务管理</router-link>
+        <router-link to="/store/settings">设置</router-link>
       </nav>
     </aside>
     <div class="body">

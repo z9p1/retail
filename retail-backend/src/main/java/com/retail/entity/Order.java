@@ -33,6 +33,8 @@ public class Order {
     private BigDecimal totalAmount;
     /** 状态：PENDING_PAY, CANCELLED, PENDING_SHIP, SHIPPED, COMPLETED */
     private String status;
+    /** 收货地址（可为空） */
+    private String shippingAddress;
     private LocalDateTime createTime;
     private LocalDateTime payTime;
     private LocalDateTime updateTime;

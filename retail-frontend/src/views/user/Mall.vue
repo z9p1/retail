@@ -26,6 +26,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { listProducts } from '../../api/product'
 import { useCartStore } from '../../stores/cart'
+import { addCart as apiAddCart, clearCart as apiClearCart } from '../../api/cart'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -41,15 +42,26 @@ async function load() {
   }
 }
 
-function addCart(p) {
-  cartStore.add(p, 1)
-  alert('已加入购物车')
+async function addCart(p) {
+  try {
+    await apiAddCart(p.id, 1)
+    cartStore.add(p, 1)
+    alert('已加入购物车')
+  } catch (e) {
+    alert(e.message || '加入失败')
+  }
 }
 
-function buyNow(p) {
-  cartStore.clear()
-  cartStore.add(p, 1)
-  router.push('/cart?checkout=1')
+async function buyNow(p) {
+  try {
+    await apiClearCart()
+    await apiAddCart(p.id, 1)
+    cartStore.clear()
+    cartStore.add(p, 1)
+    router.push('/cart?checkout=1')
+  } catch (e) {
+    alert(e.message || '操作失败')
+  }
 }
 
 onMounted(load)

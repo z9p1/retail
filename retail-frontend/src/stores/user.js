@@ -15,7 +15,8 @@ export const useUserStore = defineStore('user', () => {
       userId: data.userId,
       username: data.username,
       role: data.role,
-      nickname: data.nickname
+      nickname: data.nickname,
+      phone: data.phone ?? null
     }
     localStorage.setItem('token', data.token)
     localStorage.setItem('user', JSON.stringify(user.value))

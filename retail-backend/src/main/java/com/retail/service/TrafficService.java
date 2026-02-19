@@ -14,8 +14,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -135,5 +137,57 @@ public class TrafficService {
             start = end.minusDays(30);
         }
         return new LocalDateTime[]{start, end};
+    }
+
+    /** 销量趋势：近 days 天每日总金额 + 各商品每日金额，用于线型图。 */
+    public Map<String, Object> getSalesTrend(int days) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1);
+        LocalDateTime start = LocalDateTime.of(startDate, LocalTime.MIN);
+        LocalDateTime end = LocalDateTime.now();
+        List<Map<String, Object>> dailyList = orderMapper.sumPaidAmountGroupByDate(start, end);
+        List<Map<String, Object>> byProductList = orderMapper.sumPaidAmountGroupByDateAndProduct(start, end);
+        List<String> dates = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            dates.add(d.format(DateTimeFormatter.ISO_LOCAL_DATE));
+        }
+        Map<String, BigDecimal> dateToTotal = new LinkedHashMap<>();
+        for (String d : dates) dateToTotal.put(d, BigDecimal.ZERO);
+        if (dailyList != null) {
+            for (Map<String, Object> row : dailyList) {
+                Object dt = row.get("date");
+                if (dt != null) dateToTotal.put(dt.toString(), (BigDecimal) row.get("amount"));
+            }
+        }
+        List<BigDecimal> dailyTotalAmounts = new ArrayList<>();
+        for (String d : dates) dailyTotalAmounts.add(dateToTotal.get(d));
+        Map<Long, String> productIdToName = new HashMap<>();
+        Map<Long, Map<String, BigDecimal>> productDaily = new LinkedHashMap<>();
+        if (byProductList != null) {
+            for (Map<String, Object> row : byProductList) {
+                Long pid = row.get("productId") != null ? ((Number) row.get("productId")).longValue() : null;
+                if (pid == null) continue;
+                productIdToName.put(pid, row.get("productName") != null ? row.get("productName").toString() : "");
+                productDaily.computeIfAbsent(pid, k -> new LinkedHashMap<>());
+                for (String d : dates) productDaily.get(pid).put(d, BigDecimal.ZERO);
+                Object dt = row.get("date");
+                if (dt != null) productDaily.get(pid).put(dt.toString(), (BigDecimal) row.get("amount"));
+            }
+        }
+        List<Map<String, Object>> products = new ArrayList<>();
+        for (Map.Entry<Long, Map<String, BigDecimal>> e : productDaily.entrySet()) {
+            List<BigDecimal> amts = new ArrayList<>();
+            for (String d : dates) amts.add(e.getValue().getOrDefault(d, BigDecimal.ZERO));
+            Map<String, Object> p = new HashMap<>();
+            p.put("productId", e.getKey());
+            p.put("productName", productIdToName.getOrDefault(e.getKey(), ""));
+            p.put("dailyAmounts", amts);
+            products.add(p);
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("dates", dates);
+        result.put("dailyTotalAmounts", dailyTotalAmounts);
+        result.put("products", products);
+        return result;
     }
 }

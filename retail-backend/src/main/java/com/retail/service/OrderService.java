@@ -19,7 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
@@ -56,11 +58,11 @@ public class OrderService {
     }
 
     /**
-     * 创建订单（仅校验库存与上下架，不扣减）。
+     * 创建订单（仅校验库存与上下架，不扣减）。shippingAddress 可为空。
      * 若传 idempotencyKey，相同 key 在 TTL 内重复请求返回已创建的订单，防重复提交。
      */
     @Transactional(rollbackFor = Exception.class)
-    public Order createOrder(Long userId, List<OrderItemDto> items, String idempotencyKey) {
+    public Order createOrder(Long userId, List<OrderItemDto> items, String idempotencyKey, String shippingAddress) {
         if (idempotencyKey != null && !idempotencyKey.trim().isEmpty()) {
             String key = IDEMPOTENCY_PREFIX + idempotencyKey.trim();
             Object cached = redisTemplate.opsForValue().get(key);
@@ -89,6 +91,7 @@ public class OrderService {
         order.setUserId(userId);
         order.setTotalAmount(total);
         order.setStatus(PENDING_PAY);
+        order.setShippingAddress(shippingAddress != null && !shippingAddress.trim().isEmpty() ? shippingAddress.trim() : null);
         order.setCreateTime(LocalDateTime.now());
         order.setUpdateTime(LocalDateTime.now());
         orderMapper.insert(order);
@@ -192,10 +195,12 @@ public class OrderService {
         return orderMapper.selectPage(new Page<>(page, size), q);
     }
 
-    /** 店家：全部订单分页（填充 userDisplayName）。userKeyword 按昵称/账号/手机号模糊搜用户，不再按 userId 搜。 */
-    public IPage<Order> listForStore(int page, int size, String status, String userKeyword) {
+    /** 店家：全部订单分页（填充 userDisplayName）。userKeyword 按昵称/账号/手机号模糊搜用户；startDate/endDate 按下单时间范围筛选。 */
+    public IPage<Order> listForStore(int page, int size, String status, String userKeyword, LocalDate startDate, LocalDate endDate) {
         LambdaQueryWrapper<Order> q = new LambdaQueryWrapper<>();
         if (status != null && !status.isEmpty()) q.eq(Order::getStatus, status);
+        if (startDate != null) q.ge(Order::getCreateTime, LocalDateTime.of(startDate, LocalTime.MIN));
+        if (endDate != null) q.le(Order::getCreateTime, LocalDateTime.of(endDate, LocalTime.MAX));
         if (userKeyword != null && !userKeyword.trim().isEmpty()) {
             List<Long> userIds = resolveUserIdsByKeyword(userKeyword.trim());
             if (userIds.isEmpty()) {
@@ -235,6 +240,42 @@ public class OrderService {
         return result;
     }
 
+    /** 店家：导出订单列表（最多 5000 条），与 listForStore 同条件，支持 startDate/endDate */
+    public List<Order> listForStoreExport(String status, String userKeyword, LocalDate startDate, LocalDate endDate) {
+        LambdaQueryWrapper<Order> q = new LambdaQueryWrapper<>();
+        if (status != null && !status.isEmpty()) q.eq(Order::getStatus, status);
+        if (startDate != null) q.ge(Order::getCreateTime, LocalDateTime.of(startDate, LocalTime.MIN));
+        if (endDate != null) q.le(Order::getCreateTime, LocalDateTime.of(endDate, LocalTime.MAX));
+        if (userKeyword != null && !userKeyword.trim().isEmpty()) {
+            List<Long> userIds = resolveUserIdsByKeyword(userKeyword.trim());
+            if (userIds.isEmpty()) return Collections.emptyList();
+            q.in(Order::getUserId, userIds);
+        }
+        q.orderByDesc(Order::getCreateTime);
+        q.last("LIMIT 5000");
+        List<Order> records = orderMapper.selectList(q);
+        if (records == null || records.isEmpty()) return records;
+        List<Long> userIds = records.stream().map(Order::getUserId).distinct().collect(Collectors.toList());
+        List<User> users = userMapper.selectBatchIds(userIds);
+        java.util.Map<Long, String> nameMap = users.stream()
+                .collect(Collectors.toMap(User::getId, u -> (u.getNickname() != null && !u.getNickname().isEmpty()) ? u.getNickname() : u.getUsername()));
+        for (Order o : records) {
+            o.setUserDisplayName(nameMap.getOrDefault(o.getUserId(), "—"));
+        }
+        for (Order o : records) {
+            List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, o.getId()));
+            if (items == null || items.isEmpty()) {
+                o.setProductSummary("—");
+                o.setTotalQuantity(0);
+            } else {
+                String summary = items.stream().map(OrderItem::getProductName).filter(java.util.Objects::nonNull).collect(Collectors.joining("、"));
+                o.setProductSummary(summary.length() > 50 ? summary.substring(0, 47) + "…" : (summary.isEmpty() ? "—" : summary));
+                o.setTotalQuantity(items.stream().mapToInt(item -> item.getQuantity() != null ? item.getQuantity() : 0).sum());
+            }
+        }
+        return records;
+    }
+
     /** 按关键词解析用户：昵称/账号/手机号模糊匹配，若关键词为数字则同时按 id 精确匹配（如昵称是 12345 也能搜到）。 */
     private List<Long> resolveUserIdsByKeyword(String keyword) {
         LambdaQueryWrapper<User> uq = new LambdaQueryWrapper<>();
@@ -246,6 +287,20 @@ public class OrderService {
         } catch (NumberFormatException ignored) { }
         List<User> users = userMapper.selectList(uq);
         return users == null ? Collections.emptyList() : users.stream().map(User::getId).distinct().collect(Collectors.toList());
+    }
+
+    /** 待支付订单超时自动取消：将创建时间超过指定分钟数的 PENDING_PAY 订单置为 CANCELLED */
+    public int cancelPendingPayOlderThanMinutes(int minutes) {
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(minutes);
+        LambdaQueryWrapper<Order> q = new LambdaQueryWrapper<>();
+        q.eq(Order::getStatus, PENDING_PAY).lt(Order::getCreateTime, threshold);
+        List<Order> list = orderMapper.selectList(q);
+        for (Order o : list) {
+            o.setStatus(CANCELLED);
+            o.setUpdateTime(LocalDateTime.now());
+            orderMapper.updateById(o);
+        }
+        return list != null ? list.size() : 0;
     }
 
     public static class OrderItemDto {

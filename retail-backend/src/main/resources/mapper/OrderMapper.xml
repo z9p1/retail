@@ -19,4 +19,22 @@
         WHERE status IN ('PENDING_SHIP', 'SHIPPED', 'COMPLETED')
         AND pay_time &gt;= #{start} AND pay_time &lt;= #{end}
     </select>
+
+    <select id="sumPaidAmountGroupByDate" resultType="map">
+        SELECT DATE(pay_time) AS date, COALESCE(SUM(total_amount), 0) AS amount
+        FROM `order`
+        WHERE status IN ('PENDING_SHIP', 'SHIPPED', 'COMPLETED')
+        AND pay_time &gt;= #{start} AND pay_time &lt;= #{end}
+        GROUP BY DATE(pay_time) ORDER BY date
+    </select>
+
+    <select id="sumPaidAmountGroupByDateAndProduct" resultType="map">
+        SELECT DATE(o.pay_time) AS date, oi.product_id AS productId, p.name AS productName, COALESCE(SUM(oi.subtotal), 0) AS amount
+        FROM `order` o
+        JOIN order_item oi ON o.id = oi.order_id
+        JOIN product p ON p.id = oi.product_id
+        WHERE o.status IN ('PENDING_SHIP', 'SHIPPED', 'COMPLETED')
+        AND o.pay_time &gt;= #{start} AND o.pay_time &lt;= #{end}
+        GROUP BY DATE(o.pay_time), oi.product_id, p.name ORDER BY date, oi.product_id
+    </select>
 </mapper>

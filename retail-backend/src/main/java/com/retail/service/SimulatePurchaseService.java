@@ -51,7 +51,7 @@ public class SimulatePurchaseService {
         item.setProductId(p.getId());
         item.setQuantity(1);
         try {
-            com.retail.entity.Order order = orderService.createOrder(user.getId(), Collections.singletonList(item), null);
+            com.retail.entity.Order order = orderService.createOrder(user.getId(), Collections.singletonList(item), null, null);
             orderService.pay(user.getId(), order.getId());
             log.info("SimulatePurchase: order {} created and paid for customer1, product {}", order.getOrderNo(), p.getName());
         } catch (Exception e) {

@@ -5,10 +5,12 @@
 USE retail;
 
 -- ----------------------------------------
--- 先删：按子表 -> 父表顺序清空
+-- 先删：按子表 -> 父表顺序清空（与 ddl 一致，可重复执行）
 -- ----------------------------------------
 DELETE FROM order_item;
 DELETE FROM `order`;
+DELETE FROM cart_item;
+DELETE FROM user_address;
 DELETE FROM access_log;
 DELETE FROM product;
 DELETE FROM sys_user;
