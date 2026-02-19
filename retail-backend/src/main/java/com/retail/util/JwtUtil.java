@@ -30,13 +30,15 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(Long userId, String username, String role) {
+    /** 生成 token，sessionId 用于 Redis 会话校验与异地登录挤掉。 */
+    public String generateToken(Long userId, String username, String role, String sessionId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
         return Jwts.builder()
                 .setSubject(String.valueOf(userId))
                 .claim("username", username)
                 .claim("role", role)
+                .claim("sid", sessionId)
                 .setIssuedAt(now)
                 .setExpiration(expiry)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

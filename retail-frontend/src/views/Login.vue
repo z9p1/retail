@@ -15,6 +15,12 @@
       <p class="tip">首次使用请先注册</p>
       <router-link to="/register">注册账号</router-link>
     </div>
+    <div v-if="alertMsg" class="modal-overlay" @click.self="alertMsg = ''">
+      <div class="modal alert-modal">
+        <p class="alert-text">{{ alertMsg }}</p>
+        <button type="button" class="modal-close" @click="alertMsg = ''">确定</button>
+      </div>
+    </div>
     <div v-if="showIntro" class="modal-overlay" @click.self="closeIntro">
       <div class="modal">
         <h3>项目简介</h3>
@@ -36,19 +42,29 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { login } from '../api/auth'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const loading = ref(false)
 const err = ref('')
 const showIntro = ref(false)
+const alertMsg = ref('')
 
 const INTRO_SEEN_KEY = 'retail_project_intro_seen'
 
 onMounted(() => {
+  const reason = route.query.reason
+  if (reason === 'kicked') {
+    alertMsg.value = '您的账号已在别处登录，请重新登录。'
+    router.replace({ path: '/login' })
+  } else if (reason === 'timeout') {
+    alertMsg.value = '由于长时间未操作，登录已超时，请重新登录。'
+    router.replace({ path: '/login' })
+  }
   if (!localStorage.getItem(INTRO_SEEN_KEY)) showIntro.value = true
 })
 
@@ -98,4 +114,6 @@ async function submit() {
 .modal-body li { margin-bottom: 0.35rem; }
 .modal-close { margin-top: 1rem; padding: 0.5rem 1.2rem; background: #e94560; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
 .modal-close:hover { opacity: 0.9; }
+.alert-modal { max-width: 340px; }
+.alert-text { color: #eee; margin: 0 0 1rem; font-size: 1rem; }
 </style>

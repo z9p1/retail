@@ -16,10 +16,6 @@
         <input v-model="form.password" type="password" placeholder="密码（必填）" maxlength="20" autocomplete="new-password" />
         <input v-model="form.nickname" placeholder="昵称（选填，2-20 字）" maxlength="20" />
         <input v-model="form.phone" placeholder="手机号（选填，11 位）" maxlength="11" />
-        <select v-model="form.role">
-          <option value="USER">用户</option>
-          <option value="STORE">店家</option>
-        </select>
         <button type="submit" :disabled="loading">{{ loading ? '注册中...' : '注册' }}</button>
         <p v-if="err" class="err">{{ err }}</p>
       </form>
@@ -36,7 +32,7 @@ import { register } from '../api/auth'
 const router = useRouter()
 const loading = ref(false)
 const err = ref('')
-const form = reactive({ username: '', password: '', nickname: '', phone: '', role: 'USER' })
+const form = reactive({ username: '', password: '', nickname: '', phone: '' })
 
 const USERNAME_REG = /^[a-zA-Z0-9_]{4,32}$/
 const PHONE_REG = /^1[3-9]\d{9}$/
@@ -72,7 +68,7 @@ async function submit() {
       password: form.password,
       nickname: form.nickname.trim() || undefined,
       phone: form.phone.trim() || undefined,
-      role: form.role
+      role: 'USER'
     })
     router.push('/login')
   } catch (e) {

@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -22,6 +23,8 @@ public class AuthService {
     private UserMapper userMapper;
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private SessionService sessionService;
 
     private static String encrypt(String raw) {
         return DigestUtils.md5DigestAsHex((raw + "retail_salt").getBytes());
@@ -32,7 +35,9 @@ public class AuthService {
         if (user == null || !user.getPassword().equals(encrypt(password))) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "账号或密码错误");
         }
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        String sessionId = UUID.randomUUID().toString();
+        sessionService.saveSession(user.getId(), sessionId);
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole(), sessionId);
         Map<String, Object> data = new HashMap<>();
         data.put("token", token);
         data.put("userId", user.getId());
@@ -86,10 +91,13 @@ public class AuthService {
                 throw new BusinessException(ResultCode.BAD_REQUEST, "手机号须为 11 位有效号码");
             }
         }
+        if ("STORE".equals(role)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "店家账号不支持注册");
+        }
         User user = new User();
         user.setUsername(username);
         user.setPassword(encrypt(password));
-        user.setRole(role == null || !"STORE".equals(role) ? "USER" : "STORE");
+        user.setRole("USER");
         user.setNickname(StringUtils.hasText(nickname) ? nickname.trim() : username);
         user.setPhone(StringUtils.hasText(phone) ? phone.trim() : null);
         user.setCreateTime(java.time.LocalDateTime.now());

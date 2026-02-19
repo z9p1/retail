@@ -14,6 +14,7 @@ const routes = [
       { path: 'products', name: 'StoreProducts', component: () => import('../views/store/Products.vue') },
       { path: 'orders', name: 'StoreOrders', component: () => import('../views/store/Orders.vue') },
       { path: 'traffic', name: 'StoreTraffic', component: () => import('../views/store/Traffic.vue') },
+      { path: 'online-users', name: 'StoreOnlineUsers', component: () => import('../views/store/OnlineUsers.vue') },
       { path: 'user-analysis', name: 'StoreUserAnalysis', component: () => import('../views/store/UserAnalysis.vue') },
       { path: 'schedule', name: 'StoreSchedule', component: () => import('../views/store/Schedule.vue') },
       { path: 'settings', name: 'StoreSettings', component: () => import('../views/store/Settings.vue') }

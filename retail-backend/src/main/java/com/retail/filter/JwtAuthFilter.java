@@ -3,6 +3,7 @@ package com.retail.filter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retail.common.Result;
 import com.retail.common.ResultCode;
+import com.retail.service.SessionService;
 import com.retail.service.TrafficService;
 import com.retail.util.JwtUtil;
 import io.jsonwebtoken.Claims;
@@ -40,6 +41,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Autowired
     private JwtUtil jwtUtil;
     @Autowired
+    private SessionService sessionService;
+    @Autowired
     private TrafficService trafficService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -65,6 +68,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         Claims claims = jwtUtil.parseToken(token);
         Long userId = Long.parseLong(claims.getSubject());
         String role = claims.get("role", String.class);
+        String sessionId = claims.get("sid", String.class);
+        SessionService.SessionStatus status = SessionService.SessionStatus.EXPIRED;
+        if (sessionId != null && !sessionId.isEmpty()) {
+            status = sessionService.validateAndRefresh(userId, sessionId);
+        }
+        if (status != SessionService.SessionStatus.OK) {
+            String msg = status == SessionService.SessionStatus.KICKED ? "您的账号已在别处登录" : "未登录或登录已过期";
+            writeFail(response, ResultCode.UNAUTHORIZED, msg, 401);
+            return;
+        }
         request.setAttribute("userId", userId);
         request.setAttribute("role", role);
 

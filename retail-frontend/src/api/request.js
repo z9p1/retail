@@ -1,4 +1,5 @@
 import axios from 'axios'
+import router from '../router'
 import { useUserStore } from '../stores/user'
 
 const request = axios.create({
@@ -24,6 +25,13 @@ request.interceptors.response.use(
     return data !== undefined ? data : res.data
   },
   err => {
+    if (err.response?.status === 401) {
+      const store = useUserStore()
+      store.logout()
+      const msg = err.response?.data?.message || ''
+      const reason = msg.includes('别处登录') ? 'kicked' : 'timeout'
+      router.push({ path: '/login', query: { reason } })
+    }
     const msg = err.response?.data?.message || err.message || '网络错误'
     return Promise.reject(new Error(msg))
   }
