@@ -6,7 +6,6 @@
         <router-link to="/store/workbench">工作台</router-link>
         <router-link to="/store/products">商品管理</router-link>
         <router-link to="/store/orders">订单管理</router-link>
-        <router-link to="/store/traffic">流量监控</router-link>
         <router-link to="/store/online-users">用户监控</router-link>
         <router-link to="/store/user-analysis">用户分析</router-link>
         <router-link to="/store/schedule">任务管理</router-link>

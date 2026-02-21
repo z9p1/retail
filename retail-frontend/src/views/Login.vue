@@ -1,10 +1,8 @@
 <template>
   <div class="login-page">
-    <header class="top-bar">
-      <span class="top-bar-placeholder"></span>
-      <button type="button" class="btn-intro" @click="showIntro = true">项目简介</button>
-    </header>
-    <div class="card">
+    <div class="login-block">
+      <button type="button" class="btn-intro" :class="{ shake: isShaking }" @click="showIntro = true">请先读我：项目简介</button>
+      <div class="card">
       <h1>店家线上零售系统(ai实现)</h1>
       <form @submit.prevent="submit">
         <input v-model="form.username" placeholder="账号" required />
@@ -14,6 +12,7 @@
       </form>
       <p class="tip">首次使用请先注册</p>
       <router-link to="/register">注册账号</router-link>
+      </div>
     </div>
     <div v-if="alertMsg" class="modal-overlay" @click.self="alertMsg = ''">
       <div class="modal alert-modal">
@@ -41,7 +40,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { login } from '../api/auth'
@@ -53,8 +52,19 @@ const loading = ref(false)
 const err = ref('')
 const showIntro = ref(false)
 const alertMsg = ref('')
+const isShaking = ref(false)
 
 const INTRO_SEEN_KEY = 'retail_project_intro_seen'
+
+let shakeTimer = null
+function startShakeInterval() {
+  function doShake() {
+    isShaking.value = true
+    setTimeout(() => { isShaking.value = false }, 600)
+  }
+  doShake()
+  shakeTimer = setInterval(doShake, 10000)
+}
 
 onMounted(() => {
   const reason = route.query.reason
@@ -66,6 +76,10 @@ onMounted(() => {
     router.replace({ path: '/login' })
   }
   if (!localStorage.getItem(INTRO_SEEN_KEY)) showIntro.value = true
+  startShakeInterval()
+})
+onUnmounted(() => {
+  if (shakeTimer) clearInterval(shakeTimer)
 })
 
 function closeIntro() {
@@ -92,12 +106,19 @@ async function submit() {
 </script>
 
 <style scoped>
-.login-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #0f0f23; padding-top: 1rem; }
-.top-bar { position: absolute; top: 0; left: 0; right: 0; height: 52px; display: flex; align-items: center; justify-content: flex-end; padding: 0 1.5rem; }
-.top-bar-placeholder { flex: 1; }
-.btn-intro { padding: 0.4rem 0.8rem; background: #1a1a2e; color: #00d9ff; border: 1px solid #333; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+.login-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f0f23; }
+.login-block { display: flex; flex-direction: column; align-items: center; width: 320px; }
+.btn-intro { padding: 0.5rem 1rem; background: #1a1a2e; color: #00d9ff; border: 1px solid #333; border-radius: 8px; cursor: pointer; font-size: 0.9rem; margin-bottom: 10px; }
 .btn-intro:hover { background: #16213e; border-color: #00d9ff; }
-.card { background: #1a1a2e; padding: 2rem; border-radius: 8px; width: 320px; margin: auto 0; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.btn-intro.shake { animation: shake 0.5s ease-in-out; }
+.card { background: #1a1a2e; padding: 2rem; width: 100%; border: 1px solid #333; border-radius: 8px; }
 .card h1 { margin: 0 0 1.5rem; color: #eee; font-size: 1.25rem; }
 .card input, .card select { width: 100%; padding: 0.6rem; margin-bottom: 0.75rem; border: 1px solid #333; border-radius: 4px; background: #16213e; color: #eee; }
 .card button { width: 100%; padding: 0.6rem; background: #e94560; color: #fff; border: none; border-radius: 4px; cursor: pointer; }

@@ -13,7 +13,6 @@ const routes = [
       { path: 'workbench', name: 'StoreWorkbench', component: () => import('../views/store/Workbench.vue') },
       { path: 'products', name: 'StoreProducts', component: () => import('../views/store/Products.vue') },
       { path: 'orders', name: 'StoreOrders', component: () => import('../views/store/Orders.vue') },
-      { path: 'traffic', name: 'StoreTraffic', component: () => import('../views/store/Traffic.vue') },
       { path: 'online-users', name: 'StoreOnlineUsers', component: () => import('../views/store/OnlineUsers.vue') },
       { path: 'user-analysis', name: 'StoreUserAnalysis', component: () => import('../views/store/UserAnalysis.vue') },
       { path: 'schedule', name: 'StoreSchedule', component: () => import('../views/store/Schedule.vue') },
