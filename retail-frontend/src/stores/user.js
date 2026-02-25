@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useAgentStore } from './agent'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
@@ -23,6 +24,9 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function logout() {
+    try {
+      useAgentStore().clearAll()
+    } catch (_) {}
     token.value = ''
     user.value = null
     localStorage.removeItem('token')

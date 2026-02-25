@@ -33,3 +33,8 @@ jwt:
 cache:
   user-analysis-ttl: 300
   traffic-ttl: 300
+
+# 店家侧智能助手（OpenAI 兼容 API；api-key 存数据库 agent_config 表）
+agent:
+  api-url: https://hnd1.aihub.zeabur.ai/v1
+  model: gpt-4o-mini

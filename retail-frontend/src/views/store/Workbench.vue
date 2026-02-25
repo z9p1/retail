@@ -91,15 +91,53 @@
         </div>
       </aside>
     </div>
+
+    <button type="button" class="agent-fab" :class="{ open: agentOpen }" @click="agentOpen = !agentOpen" title="智能助手">智能助手</button>
+    <div v-if="agentOpen" class="agent-panel" :class="{ 'agent-panel-shake': agentPanelShake }">
+      <div class="agent-header">
+        <span>智能助手</span>
+        <button type="button" class="agent-close" @click="agentOpen = false">×</button>
+      </div>
+      <div class="agent-messages" ref="agentMessagesRef">
+        <div v-if="!agentStore.messages.length" class="agent-hint">
+          你可以问我库存相关，查询库存 / 当前库存，订单与发货，待发货有多少 / 有多少单没发，流量与销售，今日/最近 7 天/最近 30 天的 UV、PV、下单笔数、成交金额等。<br />
+          退出登录后聊天内容将清空。
+        </div>
+        <div v-for="(m, i) in agentStore.messages" :key="i" :class="['agent-msg', m.role]">
+          <span class="agent-msg-label">{{ m.role === 'user' ? '我' : '助手' }}</span>
+          <span class="agent-msg-content">{{ m.content }}</span>
+        </div>
+        <div v-if="agentSending" class="agent-msg assistant agent-loading">
+          <span class="agent-msg-label">助手</span>
+          <span class="agent-msg-content agent-loading-dots"><span></span><span></span><span></span></span>
+        </div>
+      </div>
+      <div class="agent-input-wrap">
+        <input v-model="agentStore.input" type="text" placeholder="输入问题，最多20字" maxlength="20" @keyup.enter="sendAgentMessage" />
+        <span class="agent-char-count">{{ (agentStore.input || '').length }}/20</span>
+        <button type="button" class="agent-send" :disabled="agentSending || agentCooldown > 0" @click="sendAgentMessage">
+          {{ agentSending ? '...' : agentCooldown > 0 ? `请稍后再试(${agentCooldown}s)` : '发送' }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { getWorkbench } from '../../api/workbench'
 import { getTraffic, getTrafficTrend } from '../../api/traffic'
+import { agentChat } from '../../api/agent'
+import { useAgentStore } from '../../stores/agent'
 
+const agentStore = useAgentStore()
 const data = ref({})
+const agentOpen = ref(true)
+const agentPanelShake = ref(false)
+const agentSending = ref(false)
+const agentCooldown = ref(0)
+let agentCooldownTimer = null
+const agentMessagesRef = ref(null)
 const trafficRange = ref('7')
 const trafficData = ref({})
 const trend = ref({})
@@ -151,6 +189,8 @@ const areaChartPoints = computed(() => {
 })
 
 onMounted(async () => {
+  agentPanelShake.value = true
+  setTimeout(() => { agentPanelShake.value = false }, 1500)
   try {
     data.value = await getWorkbench()
   } catch (e) {
@@ -170,6 +210,44 @@ async function loadTraffic() {
   } catch (e) {
     console.error(e)
   }
+}
+
+async function sendAgentMessage() {
+  const text = (agentStore.input || '').trim()
+  if (!text || agentSending.value || agentCooldown.value > 0) return
+  if (text.length > 20) {
+    agentStore.addMessage('assistant', '问题最多20个字，请缩短后重试。')
+    return
+  }
+  agentStore.addMessage('user', text)
+  agentStore.clearInput()
+  agentSending.value = true
+  startAgentCooldown()
+  nextTick(() => {
+    if (agentMessagesRef.value) agentMessagesRef.value.scrollTop = agentMessagesRef.value.scrollHeight
+  })
+  try {
+    const res = await agentChat(text)
+    const reply = res?.reply ?? '暂无回复'
+    agentStore.addMessage('assistant', reply)
+  } catch (e) {
+    const msg = e.message || '请稍后再试'
+    agentStore.addMessage('assistant', (msg.includes('30秒') || msg.includes('一分钟')) ? msg : '请求失败：' + msg)
+  } finally {
+    agentSending.value = false
+    nextTick(() => {
+      if (agentMessagesRef.value) agentMessagesRef.value.scrollTop = agentMessagesRef.value.scrollHeight
+    })
+  }
+}
+
+function startAgentCooldown() {
+  agentCooldown.value = 30
+  if (agentCooldownTimer) clearInterval(agentCooldownTimer)
+  agentCooldownTimer = setInterval(() => {
+    agentCooldown.value--
+    if (agentCooldown.value <= 0) clearInterval(agentCooldownTimer)
+  }, 1000)
 }
 </script>
 
@@ -210,4 +288,35 @@ async function loadTraffic() {
 .line-chart { width: 100%; height: 120px; display: block; }
 .chart-labels { display: flex; justify-content: space-between; margin-top: 4px; padding: 0 2px; font-size: 0.65rem; color: #888; }
 .no-data { color: #888; margin: 0; font-size: 0.85rem; }
+
+.agent-fab { position: fixed; right: 24px; bottom: 24px; padding: 0.6rem 1rem; background: #00d9ff; color: #1a1a2e; border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,217,255,0.4); z-index: 100; }
+.agent-fab:hover { opacity: 0.9; }
+.agent-panel { position: fixed; right: 24px; bottom: 70px; width: 360px; max-height: 420px; background: #0f2430; border: 1px solid #1e5f6f; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,217,255,0.15); z-index: 101; display: flex; flex-direction: column; }
+.agent-panel-shake { animation: agent-panel-shake 0.5s ease-in-out 3; }
+@keyframes agent-panel-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.agent-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid #1e5f6f; font-weight: 600; color: #00d9ff; background: rgba(0,217,255,0.06); }
+.agent-close { background: none; border: none; color: #888; font-size: 1.2rem; cursor: pointer; padding: 0 0.25rem; }
+.agent-close:hover { color: #eee; }
+.agent-messages { flex: 1; overflow-y: auto; padding: 0.75rem; min-height: 200px; max-height: 280px; background: rgba(15,36,48,0.6); }
+.agent-hint { color: #666; font-size: 0.8rem; line-height: 1.5; padding: 0.5rem 0; }
+.agent-msg { margin-bottom: 0.75rem; }
+.agent-msg-label { font-size: 0.75rem; color: #888; margin-right: 0.5rem; }
+.agent-msg.user .agent-msg-content { color: #00d9ff; }
+.agent-msg.assistant .agent-msg-content { color: #ccc; white-space: pre-wrap; word-break: break-word; }
+.agent-loading-dots { display: inline-flex; gap: 4px; align-items: center; }
+.agent-loading-dots span { width: 6px; height: 6px; border-radius: 50%; background: #00d9ff; animation: agent-loading-bounce 0.6s ease-in-out infinite both; }
+.agent-loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+.agent-loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes agent-loading-bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.6; } 40% { transform: scale(1); opacity: 1; } }
+.agent-input-wrap { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.75rem; border-top: 1px solid #1e5f6f; }
+.agent-input-wrap input { flex: 1; min-width: 120px; padding: 0.5rem; background: #132f3d; border: 1px solid #1e5f6f; border-radius: 4px; color: #eee; }
+.agent-char-count { font-size: 0.75rem; color: #888; }
+.agent-send { padding: 0.5rem 1rem; background: #00d9ff; color: #1a1a2e; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.agent-send:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

@@ -10,6 +10,8 @@ public final class ResultCode {
     public static final int UNAUTHORIZED = 401;
     public static final int FORBIDDEN = 403;
     public static final int BAD_REQUEST = 400;
+    /** 请求过于频繁（如助手一分钟限一次） */
+    public static final int TOO_MANY_REQUESTS = 429;
 
     /** 库存不足 */
     public static final int STOCK_INSUFFICIENT = 4001;

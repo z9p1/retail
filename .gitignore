@@ -16,6 +16,11 @@ retail-backend/target/
 .DS_Store
 Thumbs.db
 
+# 含 API Key，不提交
+retail-backend/src/main/resources/dml.sql
+retail-backend/src/main/resources/agent_config_dml.sql
+verify-agent-key.ps1
+
 # Logs & temp
 *.log
 npm-debug.log*

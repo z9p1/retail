@@ -24,7 +24,7 @@ const routes = [
     component: () => import('../layouts/UserLayout.vue'),
     meta: { requireAuth: true },
     children: [
-      { path: '', redirect: '/mall' },
+      { path: '', redirect: () => useUserStore().isStore ? '/store' : '/mall' },
       { path: 'mall', name: 'Mall', component: () => import('../views/user/Mall.vue') },
       { path: 'cart', name: 'Cart', component: () => import('../views/user/Cart.vue') },
       { path: 'orders', name: 'MyOrders', component: () => import('../views/user/Orders.vue') },

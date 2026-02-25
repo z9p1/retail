@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS `order`;
 DROP TABLE IF EXISTS cart_item;
 DROP TABLE IF EXISTS user_address;
 DROP TABLE IF EXISTS access_log;
+DROP TABLE IF EXISTS agent_config;
 DROP TABLE IF EXISTS product;
 DROP TABLE IF EXISTS sys_user;
 
@@ -87,6 +88,14 @@ CREATE TABLE user_address (
   phone VARCHAR(32),
   address VARCHAR(512) NOT NULL,
   create_time DATETIME,
+  update_time DATETIME
+);
+
+-- 系统配置（如智能助手 API Key）
+CREATE TABLE agent_config (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  config_key VARCHAR(64) NOT NULL UNIQUE,
+  config_value VARCHAR(512),
   update_time DATETIME
 );
 
