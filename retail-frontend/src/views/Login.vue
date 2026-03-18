@@ -10,7 +10,7 @@
         <button type="submit" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</button>
         <p v-if="err" class="err">{{ err }}</p>
       </form>
-      <p class="tip">首次使用请先注册</p>
+      <p class="tip">演示作品，可直接点击登录，请先读上面项目简介</p>
       <router-link to="/register">注册账号</router-link>
       </div>
     </div>
@@ -75,7 +75,6 @@ onMounted(() => {
     alertMsg.value = '由于长时间未操作，登录已超时，请重新登录。'
     router.replace({ path: '/login' })
   }
-  if (!localStorage.getItem(INTRO_SEEN_KEY)) showIntro.value = true
   startShakeInterval()
 })
 onUnmounted(() => {

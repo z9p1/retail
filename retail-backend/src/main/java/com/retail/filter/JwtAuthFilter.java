@@ -21,8 +21,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
+
 /**
- * JWT 校验；店家专用接口校验角色 STORE
+ * JWT 校验；店家专用接口校验角色 STORE。
+ * 企业级 Dify 回调：若配置了 agent.dify-internal-key，对「内部 Key 路径」且请求头 X-Internal-Api-Key 匹配的请求放行，不校验 JWT。
  */
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -33,10 +36,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/api/auth/register",
             "/api/user/products/**"
     );
+    /** Dify 等内部服务用 X-Internal-Api-Key 可访问的路径（无 JWT，见 docs/DIFY_企业级回调鉴权.md） */
+    private static final List<String> INTERNAL_KEY_PATHS = Arrays.asList(
+            "/api/store/workbench",
+            "/api/store/workbench/**",
+            "/api/store/products",
+            "/api/store/products/**",
+            "/api/traffic",
+            "/api/traffic/**"
+    );
     /** 仅店家可访问前缀 */
     private static final String STORE_PREFIX = "/api/store/";
     private static final String TRAFFIC = "/api/traffic";
     private static final String USER_ANALYSIS = "/api/user-analysis";
+
+    @Value("${agent.dify-internal-key:}")
+    private String difyInternalKey;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -52,6 +67,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = request.getRequestURI();
         if (isWhite(path)) {
+            chain.doFilter(request, response);
+            return;
+        }
+        // 企业级 Dify 回调：内部 Key 放行（不校验 JWT，不设 userId）
+        if (isInternalKeyPath(path) && isInternalKeyValid(request)) {
             chain.doFilter(request, response);
             return;
         }
@@ -92,10 +112,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private void writeFail(HttpServletResponse response, int code, String message, int httpStatus) throws IOException {
-        response.setStatus(httpStatus);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
-        response.getWriter().write(objectMapper.writeValueAsString(Result.fail(code, message)));
+        if (!response.isCommitted()) {
+            response.setStatus(httpStatus);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding("UTF-8");
+            String body = objectMapper.writeValueAsString(Result.fail(code, message));
+            response.getWriter().write(body);
+            response.getWriter().flush();
+        }
     }
 
     private boolean isWhite(String path) {
@@ -103,6 +127,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (PATH_MATCHER.match(p, path)) return true;
         }
         return false;
+    }
+
+    private boolean isInternalKeyPath(String path) {
+        if (difyInternalKey == null || difyInternalKey.isEmpty()) return false;
+        for (String p : INTERNAL_KEY_PATHS) {
+            if (PATH_MATCHER.match(p, path)) return true;
+        }
+        return false;
+    }
+
+    private boolean isInternalKeyValid(HttpServletRequest request) {
+        String key = request.getHeader("X-Internal-Api-Key");
+        return key != null && key.equals(difyInternalKey);
     }
 
     private boolean requireStore(String path) {

@@ -34,7 +34,20 @@ cache:
   user-analysis-ttl: 300
   traffic-ttl: 300
 
-# 店家侧智能助手（OpenAI 兼容 API；api-key 存数据库 agent_config 表）
+# 店家侧智能助手（API Key 存数据库 agent_config 表，config_key=agent_api_key）
+# provider: openai = 调用 OpenAI 兼容的 chat/completions + 本后端执行工具；dify = 调用 Dify chat-messages，工具在 Dify 工作流中配置
 agent:
+  provider: openai
   api-url: https://hnd1.aihub.zeabur.ai/v1
   model: gpt-4o-mini
+  # Dify 模式：api-url 填 Dify 应用 Base URL，agent_api_key 填 Dify 应用 API Key（见 docs/DIFY_INTEGRATION.md）
+  embedding-model: text-embedding-ada-002
+  conversation-max-messages: 20
+  context-cache-ttl-seconds: 120
+  dify-timeout-seconds: 60
+  # 流式调用 Dify 的读超时（秒）
+  dify-stream-timeout-seconds: 120
+
+# RAG 检索：每条问题取最相关的 topK 条知识块注入助手上下文
+rag:
+  retrieve-top-k: 5

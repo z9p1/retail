@@ -98,6 +98,61 @@ server {
 
 重载 Nginx：`nginx -s reload`。
 
+### 3.4.1 改为 HTTPS 访问（推荐对外项目）
+
+当前是 `http://101.132.24.6/login`，要改成 **https** 需要两步：**证书** + **Nginx 开 443**。
+
+#### 第一步：准备 SSL 证书
+
+| 情况 | 做法 |
+|------|------|
+| **有域名**（如 `retail.你的域名.com` 已解析到 101.132.24.6） | 用 **Let's Encrypt** 免费证书：`sudo certbot certonly --standalone -d retail.你的域名.com`，证书在 `/etc/letsencrypt/live/你的域名/`。 |
+| **只有 IP**（如 101.132.24.6，无域名） | 用**自签名证书**：`sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/ssl/retail.key -out /etc/nginx/ssl/retail.crt`（浏览器会提示“不安全”，需手动信任或仅内网用）。 |
+
+#### 第二步：Nginx 配置 HTTPS
+
+在 `/etc/nginx/conf.d/retail.conf` 中改为（或新增）下面内容。**有域名**时把 `server_name` 和 `ssl_certificate` 路径换成你的；**只有 IP** 时用自签名路径，`server_name` 可写 `101.132.24.6`：
+
+```nginx
+# HTTP 跳转到 HTTPS（可选）
+server {
+    listen 80;
+    server_name 101.132.24.6;   # 或你的域名
+    return 301 https://$server_name$request_uri;
+}
+
+# HTTPS
+server {
+    listen 443 ssl;
+    server_name 101.132.24.6;   # 或你的域名，如 retail.你的域名.com
+
+    ssl_certificate     /etc/letsencrypt/live/你的域名/fullchain.pem;   # Let's Encrypt
+    ssl_certificate_key /etc/letsencrypt/live/你的域名/privkey.pem;
+    # 自签名则改为：/etc/nginx/ssl/retail.crt 和 /etc/nginx/ssl/retail.key
+
+    root /opt/retail/dist;
+    index index.html;
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    location /api {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+执行：
+
+```bash
+sudo nginx -t && sudo nginx -s reload
+```
+
+云服务器需在**安全组/防火墙**放行 **443** 端口。完成后用 **https://101.132.24.6/login** 或 **https://你的域名/login** 访问即可。
+
 ### 3.5 数据库初始化
 
 在 RDS 的 `retail` 库中执行项目中的 DDL/DML：
@@ -203,3 +258,75 @@ Write-Host "Frontend: retail-frontend\dist\"
 | 部署 | ECS：上传 JAR + dist，Nginx 反代 /api；或使用 Docker 镜像部署 |
 
 按上述步骤即可将本系统打包并部署到阿里云。
+
+---
+
+## 八、Linux 部署 Dify 与 Milvus（在已有 Spring 部署基础上追加）
+
+你已有一键部署脚本部署了 Spring 后端；下面在同一台或另一台 Linux 上部署 **Dify** 和 **Milvus**，与现有 JAR + Nginx 互不冲突。
+
+### 8.1 前置条件
+
+- 已安装 **Docker** 与 **Docker Compose**（V2 推荐：`docker compose version`）。
+- 若与 Spring 同机：Dify 默认占 **80** 端口，若 Nginx 已占 80，需把 Dify 改为其它端口（见下）。
+- 建议内存 ≥ 4GB（Dify 较吃内存）。
+
+### 8.2 一键部署脚本（推荐）
+
+项目内已提供脚本，上传到 Linux 后执行即可安装并启动 Dify + Milvus：
+
+```bash
+# 上传 deploy/deploy-dify-milvus.sh 到服务器后
+chmod +x deploy/deploy-dify-milvus.sh
+./deploy/deploy-dify-milvus.sh
+```
+
+脚本会：
+
+1. 检查 Docker / Docker Compose。
+2. **Dify**：在 `/opt/dify` 克隆 Dify 仓库，复制 `.env.example` 为 `.env`，执行 `docker compose up -d`（首次会拉镜像）。
+3. **Milvus**：在 `/opt/milvus` 下载官方 standalone 的 docker-compose，执行 `docker compose up -d`，对外端口 **19530**。
+
+执行完成后：
+
+- **Dify**：浏览器访问 `http://服务器IP/install` 完成初始化（若改过端口则用 `http://服务器IP:端口/install`）。
+- **Milvus**：供 Python RAG 或 Dify 连接，地址 `http://服务器IP:19530`（gRPC 默认 19530）。
+
+### 8.3 手动部署步骤（可选）
+
+**Dify**
+
+```bash
+sudo mkdir -p /opt/dify && cd /opt/dify
+sudo git clone https://github.com/langgenius/dify.git .
+cd docker
+sudo cp .env.example .env
+# 生产环境：编辑 .env，设置 CONSOLE_WEB_URL、CONSOLE_API_URL、SERVICE_API_URL 为实际域名或 IP
+sudo docker compose up -d
+```
+
+若 80 端口已被 Nginx 占用，编辑 `docker/docker-compose.yaml` 中 nginx 的端口映射，例如改为 `8081:80`，则访问 `http://服务器IP:8081`。
+
+**Milvus（standalone）**
+
+```bash
+sudo mkdir -p /opt/milvus && cd /opt/milvus
+sudo wget -q https://github.com/milvus-io/milvus/releases/download/v2.6.0/milvus-standalone-docker-compose.yml -O docker-compose.yml
+sudo docker compose up -d
+```
+
+验证：`docker compose ps`，Milvus 监听 19530。
+
+### 8.4 与现有 Spring 的衔接
+
+| 组件 | 说明 |
+|------|------|
+| **Spring 后端** | 保持原有部署方式（JAR + Nginx），无需改动。 |
+| **application.yml** | `agent.api-url` 填 Dify 的 API 地址，如 `http://服务器IP/v1`（若 Dify 改过端口则 `http://服务器IP:8081/v1`）；`agent.dify-internal-key` 与 Dify 工作流 HTTP 节点里 `X-Internal-Api-Key` 一致。 |
+| **Dify** | 工作流里 HTTP 回调本后端时，URL 填 Spring 所在地址，如 `http://同机内网IP:8080/api/store/workbench`，Header 带 `X-Internal-Api-Key`。 |
+| **Milvus** | 当前项目 RAG 使用 MySQL `rag_chunk`；若后续改用自建 RAG + Milvus，由 Python 服务或 Dify 连接 `服务器IP:19530`。 |
+
+### 8.5 生产注意
+
+- **Dify**：生产环境务必在 `.env` 中设置 `CONSOLE_WEB_URL`、`CONSOLE_API_URL`、`SERVICE_API_URL` 为实际访问地址（如 `https://dify.你的域名.com`），否则登录与 API 展示可能异常。详见 [docs/DIFY_接入操作手册.md](docs/DIFY_接入操作手册.md)。
+- **工作流**：在开发/本机 Dify 编排好后导出 DSL，在生产 Dify 中导入即可，无需在服务器上画线。见 [docs/DIFY_RAG_MILVUS_LLMOPS.md](docs/DIFY_RAG_MILVUS_LLMOPS.md)。

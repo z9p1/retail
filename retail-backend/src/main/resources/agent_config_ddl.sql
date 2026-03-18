@@ -9,3 +9,5 @@ CREATE TABLE agent_config (
   config_value VARCHAR(512),
   update_time DATETIME
 );
+
+-- Dify 多应用：dify_app_current=当前使用的应用名（如 11、test1），dify_app_11 / dify_app_test1 等为各应用 API Key

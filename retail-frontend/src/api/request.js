@@ -29,12 +29,12 @@ request.interceptors.response.use(
     if (err.response?.status === 401) {
       const store = useUserStore()
       store.logout()
-      const msg = err.response?.data?.message || ''
+      const msg = err.response?.data?.message || '未登录或登录已过期'
       const reason = msg.includes('别处登录') ? 'kicked' : 'timeout'
       router.push({ path: '/login', query: { reason } })
     }
     const msg = err.response?.data?.message || err.message || '网络错误'
-    return Promise.reject(new Error(msg))
+    return Promise.reject(new Error(msg || '未登录或登录已过期'))
   }
 )
 

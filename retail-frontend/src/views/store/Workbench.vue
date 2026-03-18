@@ -100,14 +100,14 @@
       </div>
       <div class="agent-messages" ref="agentMessagesRef">
         <div v-if="!agentStore.messages.length" class="agent-hint">
-          你可以问我库存相关，查询库存 / 当前库存，订单与发货，待发货有多少 / 有多少单没发，流量与销售，今日/最近 7 天/最近 30 天的 UV、PV、下单笔数、成交金额等。<br />
+          你可以问我查询 Organic Apple 的库存，查询最近 30 天的 UV、PV等。<br />
           退出登录后聊天内容将清空。
         </div>
         <div v-for="(m, i) in agentStore.messages" :key="i" :class="['agent-msg', m.role]">
           <span class="agent-msg-label">{{ m.role === 'user' ? '我' : '助手' }}</span>
           <span class="agent-msg-content">{{ m.content }}</span>
         </div>
-        <div v-if="agentSending" class="agent-msg assistant agent-loading">
+        <div v-if="agentSending && (!agentStore.messages.length || agentStore.messages[agentStore.messages.length-1].role !== 'assistant' || !agentStore.messages[agentStore.messages.length-1].content)" class="agent-msg assistant agent-loading">
           <span class="agent-msg-label">助手</span>
           <span class="agent-msg-content agent-loading-dots"><span></span><span></span><span></span></span>
         </div>
@@ -129,8 +129,10 @@ import { getWorkbench } from '../../api/workbench'
 import { getTraffic, getTrafficTrend } from '../../api/traffic'
 import { agentChat } from '../../api/agent'
 import { useAgentStore } from '../../stores/agent'
+import { useUserStore } from '../../stores/user'
 
 const agentStore = useAgentStore()
+const userStore = useUserStore()
 const data = ref({})
 const agentOpen = ref(true)
 const agentPanelShake = ref(false)
@@ -215,6 +217,10 @@ async function loadTraffic() {
 async function sendAgentMessage() {
   const text = (agentStore.input || '').trim()
   if (!text || agentSending.value || agentCooldown.value > 0) return
+  if (!userStore.isLoggedIn || !userStore.isStore) {
+    agentStore.addMessage('assistant', '请先使用店家账号登录后再使用智能助手。')
+    return
+  }
   if (text.length > 20) {
     agentStore.addMessage('assistant', '问题最多20个字，请缩短后重试。')
     return
@@ -227,9 +233,10 @@ async function sendAgentMessage() {
     if (agentMessagesRef.value) agentMessagesRef.value.scrollTop = agentMessagesRef.value.scrollHeight
   })
   try {
-    const res = await agentChat(text)
+    const res = await agentChat(text, agentStore.conversationId || undefined)
     const reply = res?.reply ?? '暂无回复'
     agentStore.addMessage('assistant', reply)
+    if (res?.conversation_id) agentStore.setConversationId(res.conversation_id)
   } catch (e) {
     const msg = e.message || '请稍后再试'
     agentStore.addMessage('assistant', (msg.includes('30秒') || msg.includes('一分钟')) ? msg : '请求失败：' + msg)

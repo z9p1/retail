@@ -19,6 +19,7 @@ public class StoreProductController {
     @Autowired
     private ProductService productService;
 
+    /** 有 name 时按商品名模糊查询，无 name 时返回所有商品（可分页、按 status 筛选） */
     @GetMapping
     public Result<IPage<Product>> list(
             @RequestParam(defaultValue = "1") int page,

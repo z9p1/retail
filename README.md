@@ -101,6 +101,12 @@ mysql -u root -p retail < retail-backend/src/main/resources/ddl.sql
 mysql -u root -p retail < retail-backend/src/main/resources/agent_config_ddl.sql
 ```
 
+**RAG 知识库**（可选）：若需智能助手基于商品等文本做检索增强，执行：
+
+```bash
+mysql -u root -p retail < retail-backend/src/main/resources/rag_chunk_ddl.sql
+```
+
 再执行业务 DML（商品、用户、订单等）；**API Key 请自行写入** `agent_config` 或通过单独 DML 插入（勿提交含真实 Key 的 DML 到仓库）。
 
 ### 2. 配置
@@ -141,6 +147,21 @@ npm run dev
   - `get_traffic_summary`：指定时间范围（今日/7 天/30 天）的 UV、PV、下单笔数、成交金额等。
 - **限制**：单条问题最多 20 字；同一用户 30 秒内仅可调用一次（前后端均校验）。
 - **配置**：`agent.api-url`、`agent.model` 在 `application.yml`；API Key 存表 `agent_config`（`config_key='agent_api_key'`），避免写进代码或配置文件。
+- **接入 Dify**：可将智能助手后端改为调用 Dify 对话 API，在 Dify 中编排工作流并 HTTP 调本后端获取工作台/流量数据。详见 [docs/DIFY_INTEGRATION.md](docs/DIFY_INTEGRATION.md)。
+
+---
+
+## RAG 检索增强（可选）
+
+智能助手支持 **RAG**：用用户问题检索知识库，将相关文本注入上下文后再回答，适合“商品介绍、有哪些商品”等基于自有数据的问答。
+
+- **知识来源**：当前实现从**商品表**同步（商品名称 + 描述）到 `rag_chunk` 表，每条商品一条文本块，并调用与 chat 相同的 OpenAI 兼容 API 的 **embeddings** 接口得到向量，存为 JSON。
+- **检索**：用户每次提问时，先对问题做 embedding，再与库中向量做余弦相似度，取 topK 条（默认 5 条）拼成参考文本，追加到助手的 system 提示中。
+- **配置**：`application.yml` 中 `agent.embedding-model`（如 `text-embedding-ada-002`）、`rag.retrieve-top-k`（默认 5）。需确保所用 API 支持 embeddings。
+- **建表**：执行 `rag_chunk_ddl.sql` 创建 `rag_chunk` 表。
+- **同步知识库**：店家登录后调用 **POST /api/store/rag/ingest**（与智能助手同权限），即可从当前商品表全量同步到 RAG；商品有增删改后再次调用即可更新。未同步时检索结果为空，助手行为与未开 RAG 时一致。
+
+如需扩展知识来源（如 FAQ、文档），可在 `RagService` 中增加其他 `source_type` 的入库逻辑，并在检索时按需过滤。
 
 ---
 
@@ -148,6 +169,8 @@ npm run dev
 
 - `BUILD.md`：构建与打包说明。  
 - `DEPLOY.md`：部署说明（若有）。  
+- [docs/DIFY_INTEGRATION.md](docs/DIFY_INTEGRATION.md)：智能助手接入 Dify 的两种方式。  
+- [docs/DIFY_RAG_MILVUS_LLMOPS.md](docs/DIFY_RAG_MILVUS_LLMOPS.md)：Dify 搭建、RAG 大规模数据与嵌入、Milvus、RESTful API、LLM Ops 实操指南。  
 - 业务需求与状态流转等详见仓库内需求/设计文档（如有）。
 
 ---

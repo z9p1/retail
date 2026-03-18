@@ -3,7 +3,6 @@ package com.retail.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.Version;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -25,7 +24,7 @@ public class Product {
     private String status;
     private String description;
     private String imageUrl;
-    @Version
+    /** 版本号字段暂作为普通字段使用（目前未启用乐观锁） */
     private Integer version;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
