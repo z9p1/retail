@@ -47,6 +47,8 @@ agent:
   dify-timeout-seconds: 60
   # 流式调用 Dify 的读超时（秒）
   dify-stream-timeout-seconds: 120
+  # 原问题与 LLM 优化句 embedding 余弦相似度 ≥ 此值才采用优化句，否则回退原句（Dify 工作流 HTTP 调 /api/internal/query-semantic-gate）
+  query-optimize-similarity-threshold: 0.8
 
 # RAG 检索：每条问题取最相关的 topK 条知识块注入助手上下文
 rag:

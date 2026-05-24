@@ -43,7 +43,7 @@ agent:
 Dify 工作流用「内部 Key」调用本后端时**不需要店家 JWT**，已按企业级做法实现：
 
 - 在 `application.yml` 中配置：`agent.dify-internal-key: 一串随机密钥`（不配置则不放行）。
-- 对 `GET /api/store/workbench`、`GET /api/traffic`、`GET /api/traffic/trend` 等：若请求头 **X-Internal-Api-Key** 等于该配置，则放行（不校验 JWT）。
+- 对 `GET /api/store/workbench`、`GET /api/traffic`、`GET /api/traffic/trend` 等，以及 `POST /api/internal/query-semantic-gate`：若请求头 **X-Internal-Api-Key** 等于该配置，则放行（不校验 JWT）。
 - 在 Dify 的 HTTP 请求节点里，Header 增加：`X-Internal-Api-Key: 与配置相同的密钥`。
 
 详见 [DIFY_企业级回调鉴权.md](DIFY_企业级回调鉴权.md)。
@@ -64,11 +64,38 @@ Dify 工作流用「内部 Key」调用本后端时**不需要店家 JWT**，已
 
 ---
 
+## 方式三：问题改写 + Java 语义门控（向量相似度）
+
+**场景**：工作流里先用 LLM 把用户模糊问题改写成更清晰的问题，再交给检索/工具；需要判断改写是否「跑偏」——若与原问题语义不够接近，则回退使用原问题。
+
+**后端能力**（已实现）：
+
+- **接口**：`POST {零售后端}/api/internal/query-semantic-gate`
+- **Header**：`Content-Type: application/json`，`X-Internal-Api-Key: <与 agent.dify-internal-key 相同>`
+- **Body**：`{ "original": "用户原话", "optimized": "LLM 改写后的句子" }`
+- **响应**（统一 `Result` 包装）：`code` 为 0 时，`data` 内含：
+  - `similarity`：原句与改写句各自 embedding 后的**余弦相似度**（embedding 失败时为 `null`，此时会回退原句）
+  - `finalQuery`：下游应使用的文本（相似度低于阈值则用 `original`，否则用 `optimized`）
+  - `usedOptimized`：是否最终采用了改写句
+- **阈值**：`application.yml` 中 `agent.query-optimize-similarity-threshold`（默认 `0.8`），可按环境调整。
+
+**Dify 工作流编排建议**：
+
+1. **开始**：拿到用户输入（如 `sys.query` 或开始节点的 `user_query`）。
+2. **LLM 节点**：用独立提示词只做「改写为清晰、可执行的业务问题」，输出变量例如 `optimized_question`。
+3. **HTTP 请求节点**：对上述接口发 POST；Body 中 `original`、`optimized` 用模板引用开始节点与 LLM 输出（变量名以画布为准，例如 `{{#start.user_query#}}` / `{{#rewrite.text#}}`）。
+4. **后续节点**：知识检索、工具调用、最终回复等**一律使用**响应里 `data.finalQuery`（在 Dify 中映射为变量 `final_query`），不要直接使用未经验证的 LLM 改写原文。
+
+**说明**：相似度阈值是经验值；若改写补充了大量细节，向量相似度也可能偏低，可结合日志调参或优化改写提示词。
+
+---
+
 ## 小结
 
 | 方式 | 适用场景 | 改动点 |
 |------|----------|--------|
 | **一：助手后端用 Dify** | 希望用 Dify 编排对话、工具、多步推理 | 后端改为调 Dify chat-messages；Dify 工作流里 HTTP 调本后端 workbench/traffic；可选加内部 Key 鉴权。 |
 | **二：仅用 Dify 做 RAG** | 只想用 Dify 知识库，助手逻辑保留 | 后端 RAG 部分改为调 Dify 检索/知识库 API，或组合 Dify 返回的上下文。 |
+| **三：改写 + 语义门控** | LLM 优化用户问题后需校验是否跑偏 | Dify：改写 LLM → HTTP 调 `/api/internal/query-semantic-gate` → 用 `data.finalQuery` 继续；Java：双路 embedding + 余弦相似度与阈值。 |
 
 按需选一种或组合使用即可。若你确定采用方式一，可让后端增加 `agent.provider=dify` 的分支和上述内部 Key 校验逻辑（需要的话我可以按你当前仓库结构写出具体改法）。

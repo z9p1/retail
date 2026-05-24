@@ -1,26 +1,27 @@
 <template>
   <div class="schedule">
-    <h2>任务管理</h2>
-    <div class="task-card">
+    <UiPageHeader title="任务管理" description="配置模拟购买任务与智能助手的 Dify 应用。"/>
+
+    <UiCard title="模拟购买" subtitle="用于演示与生成订单数据。">
       <div class="task-row">
-        <span class="task-desc">{{ data.description || 'customer1 每小时自动购买一件在售商品（模拟购买）' }}</span>
-        <label class="switch">
-          <input type="checkbox" v-model="enabled" @change="toggle" />
-          <span class="slider"></span>
-        </label>
+        <div class="task-desc">{{ data.description || 'customer1 每小时自动购买一件在售商品（模拟购买）' }}</div>
+        <UiSwitch v-model="enabled" @update:modelValue="toggle" />
       </div>
       <p class="tip">开启后，系统将每隔 1 小时以 customer1 身份自动下一单（任选一件有库存在售商品，数量 1）并完成支付，用于模拟购买数据。</p>
-    </div>
-    <div class="task-card config-card">
+    </UiCard>
+
+    <div class="spacer"></div>
+
+    <UiCard title="智能助手" subtitle="选择后，智能助手对话将调用该 Dify 应用。">
       <div class="task-row">
-        <span class="task-desc">智能助手使用的 Dify 应用</span>
+        <div class="task-desc">智能助手使用的 Dify 应用</div>
         <select v-model="difyAppCurrent" @change="onDifyAppChange" class="dify-select">
           <option value="">未配置</option>
           <option v-for="opt in difyAppOptions" :key="opt" :value="opt">{{ opt }}</option>
         </select>
       </div>
-      <p class="tip">选择后，智能助手对话将调用该 Dify 应用（工作室中对应的应用名）。</p>
-    </div>
+      <p class="tip">应用名对应你在 Dify 工作室中创建的应用标识。</p>
+    </UiCard>
   </div>
 </template>
 
@@ -28,6 +29,12 @@
 import { ref, onMounted } from 'vue'
 import { getSimulatePurchase, setSimulatePurchaseEnabled } from '../../api/schedule'
 import { getDifyAppConfig, setDifyAppCurrent as setDifyAppApi } from '../../api/agentConfig'
+import UiPageHeader from '../../components/ui/UiPageHeader.vue'
+import UiCard from '../../components/ui/UiCard.vue'
+import UiSwitch from '../../components/ui/UiSwitch.vue'
+import { useToast } from '../../components/ui/toast'
+
+const toast = useToast()
 
 const data = ref({})
 const enabled = ref(false)
@@ -55,15 +62,16 @@ async function toggle() {
     await setSimulatePurchaseEnabled(enabled.value)
   } catch (e) {
     enabled.value = !enabled.value
-    alert(e.message || '操作失败')
+    toast.error(e.message || '操作失败')
   }
 }
 
 async function onDifyAppChange() {
   try {
     await setDifyAppApi(difyAppCurrent.value)
+    toast.success('已保存')
   } catch (e) {
-    alert(e.message || '保存失败')
+    toast.error(e.message || '保存失败')
   }
 }
 
@@ -71,17 +79,9 @@ onMounted(load)
 </script>
 
 <style scoped>
-.schedule h2 { margin: 0 0 1rem; }
-.task-card { background: #16213e; padding: 1.25rem; border-radius: 8px; max-width: 560px; }
-.config-card { margin-top: 1rem; }
-.task-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.task-desc { flex: 1; color: #fff; }
-.tip { margin: 1rem 0 0; color: #888; font-size: 0.9rem; }
-.dify-select { background: #1a2a4a; color: #fff; border: 1px solid #333; border-radius: 6px; padding: 6px 10px; min-width: 120px; }
-.switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #333; border-radius: 26px; transition: 0.3s; }
-.slider::before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background: #eee; border-radius: 50%; transition: 0.3s; }
-input:checked + .slider { background: #00d9ff; }
-input:checked + .slider::before { transform: translateX(22px); }
+.task-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.task-desc { flex: 1; color: var(--text); font-weight: 700; }
+.tip { margin: var(--space-3) 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.dify-select { min-width: 160px; }
+.spacer { height: var(--space-4); }
 </style>

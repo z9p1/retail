@@ -43,7 +43,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/api/store/products",
             "/api/store/products/**",
             "/api/traffic",
-            "/api/traffic/**"
+            "/api/traffic/**",
+            "/api/internal/query-semantic-gate"
     );
     /** 仅店家可访问前缀 */
     private static final String STORE_PREFIX = "/api/store/";

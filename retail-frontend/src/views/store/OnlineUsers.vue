@@ -1,8 +1,10 @@
 <template>
   <div class="online-users">
-    <h2>用户监控</h2>
-    <p class="tip">展示当前 Redis 在线用户，被踢下线的用户下次请求将跳转登录页。</p>
-    <table class="table">
+    <UiPageHeader title="用户监控" description="展示 Redis 在线用户，可对异常会话进行下线处理。"/>
+
+    <UiCard title="在线用户" :padded="false">
+      <div class="hint">展示当前 Redis 在线用户，被踢下线的用户下次请求将跳转登录页。</div>
+      <table class="table">
       <thead>
         <tr>
           <th>用户 ID</th>
@@ -19,19 +21,28 @@
           <td>{{ u.nickname || '—' }}</td>
           <td>{{ u.role === 'STORE' ? '店家' : '用户' }}</td>
           <td>
-            <button type="button" class="btn-kick" @click="kick(u.id)">踢下线</button>
+            <UiButton type="button" variant="danger" @click="kick(u.id)">踢下线</UiButton>
           </td>
         </tr>
+        <tr v-if="list.length === 0 && !loading">
+          <td colspan="5" class="empty">暂无在线用户</td>
+        </tr>
       </tbody>
-    </table>
-    <p v-if="list.length === 0 && !loading" class="empty">暂无在线用户</p>
-    <p v-if="loading" class="loading">加载中...</p>
+      </table>
+      <div v-if="loading" class="loading">加载中...</div>
+    </UiCard>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getOnlineUsers, kickOnlineUser } from '../../api/onlineUsers'
+import UiPageHeader from '../../components/ui/UiPageHeader.vue'
+import UiCard from '../../components/ui/UiCard.vue'
+import UiButton from '../../components/ui/UiButton.vue'
+import { useToast } from '../../components/ui/toast'
+
+const toast = useToast()
 
 const list = ref([])
 const loading = ref(false)
@@ -52,9 +63,10 @@ async function kick(userId) {
   if (!confirm('确定将该用户踢下线吗？')) return
   try {
     await kickOnlineUser(userId)
+    toast.success('已踢下线')
     await load()
   } catch (e) {
-    alert(e.message || '操作失败')
+    toast.error(e.message || '操作失败')
   }
 }
 
@@ -62,12 +74,29 @@ onMounted(load)
 </script>
 
 <style scoped>
-.online-users h2 { margin: 0 0 0.5rem; }
-.tip { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
-.table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
-.table th, .table td { border: 1px solid #eee; padding: 10px 12px; text-align: left; }
-.table th { background: #fafafa; color: #333; font-weight: 600; }
-.btn-kick { padding: 4px 10px; font-size: 13px; background: #e94560; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-.btn-kick:hover { opacity: 0.9; }
-.empty, .loading { color: #888; margin-top: 1rem; }
+.hint {
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+  text-align: left;
+  color: var(--text-2);
+}
+.table th {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--font-12);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-top: none;
+}
+.table tr:hover td { background: rgba(37, 99, 235, 0.05); }
+.empty { text-align: center; color: var(--muted); padding: 22px 14px; }
+.loading { padding: 12px 14px; color: var(--muted); border-top: 1px solid var(--border); }
 </style>

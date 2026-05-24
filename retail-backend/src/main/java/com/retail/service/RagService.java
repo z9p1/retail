@@ -30,6 +30,8 @@ public class RagService {
     private ProductMapper productMapper;
     @Autowired
     private EmbeddingService embeddingService;
+    @Autowired
+    private SemanticSimilarityService semanticSimilarityService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -75,7 +77,7 @@ public class RagService {
         for (RagChunk c : all) {
             float[] chunkVec = parseEmbeddingJson(c.getEmbeddingJson());
             if (chunkVec == null) continue;
-            double sim = cosineSimilarity(queryVec, chunkVec);
+            double sim = semanticSimilarityService.cosineSimilarity(queryVec, chunkVec);
             withScore.add(new AbstractMap.SimpleEntry<>(c, sim));
         }
         List<RagChunk> sorted = withScore.stream()
@@ -88,18 +90,6 @@ public class RagService {
         StringBuilder sb = new StringBuilder("【以下为与问题相关的参考知识，请基于此回答】\n");
         for (RagChunk c : sorted) sb.append("- ").append(c.getContent()).append("\n");
         return sb.toString();
-    }
-
-    private double cosineSimilarity(float[] a, float[] b) {
-        if (a == null || b == null || a.length != b.length) return 0;
-        double dot = 0, na = 0, nb = 0;
-        for (int i = 0; i < a.length; i++) {
-            dot += a[i] * b[i];
-            na += a[i] * a[i];
-            nb += b[i] * b[i];
-        }
-        if (na <= 0 || nb <= 0) return 0;
-        return dot / (Math.sqrt(na) * Math.sqrt(nb));
     }
 
     private String toJsonVec(float[] vec) {

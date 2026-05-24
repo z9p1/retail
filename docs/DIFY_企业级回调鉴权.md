@@ -12,7 +12,7 @@
 - **缺点**：回调拿不到「当前是哪个店家」，适合**单租户**或「全店汇总」类接口（如工作台汇总、流量汇总）。
 - **适用**：工作台、流量、库存汇总等「不区分登录用户」的只读查询。
 
-本项目已支持：配置 `agent.dify-internal-key` 后，对 `/api/store/workbench`、`/api/traffic` 等带该 Key 的请求放行。
+本项目已支持：配置 `agent.dify-internal-key` 后，对 `/api/store/workbench`、`/api/traffic`、`POST /api/internal/query-semantic-gate`（语义门控）等带该 Key 的请求放行。
 
 ---
 
